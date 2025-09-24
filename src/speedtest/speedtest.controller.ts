@@ -1,6 +1,7 @@
 import { Controller, Get, Post, Req, Res } from '@nestjs/common';
 import express from 'express';
-import { SpeedtestService } from './speedtest.service';
+import { SpeedtestService } from 'src/speedtest/speedtest.service';
+import Stream from 'stream';
 
 @Controller('speedtest')
 export class SpeedtestController {
@@ -33,7 +34,7 @@ export class SpeedtestController {
             'Content-Disposition': 'attachment; filename="dummy.bin"',
         });
 
-        const stream = this.speedtestService.createDownloadStream(100 * 1024 * 1024);
+        const stream: Stream.Readable = this.speedtestService.createDownloadStream(100 * 1024 * 1024);
         stream.pipe(res);
     }
 

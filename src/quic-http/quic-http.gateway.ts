@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import {
     WebSocketGateway,
     WebSocketServer,
@@ -12,19 +13,25 @@ import { Server, WebSocket } from 'ws';
         origin: '*',
     },
 })
-export class QUICHttpReportGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect {
+export class QUICHTTPGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect {
+    private logger: Logger;
+
+    constructor() {
+        this.logger = new Logger(QUICHTTPGateway.name);
+    }
+
     @WebSocketServer() wss: Server;
 
     afterInit(server: Server) {
-        console.log('WebSocket server initialized.');
+        this.logger.log('WebSocket server initialized.');
     }
 
     handleConnection(client: WebSocket, ...args: any[]) {
-        console.log(`React client connected!`);
+        this.logger.log(`React client connected!`);
     }
 
     handleDisconnect(client: WebSocket) {
-        console.log('Client disconnected.');
+        this.logger.log('Client disconnected.');
     }
 
     broadcastResult(result: any) {
