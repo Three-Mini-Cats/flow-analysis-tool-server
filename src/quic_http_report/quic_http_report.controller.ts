@@ -1,7 +1,7 @@
 import { Controller, Post, Body, HttpCode, HttpStatus } from '@nestjs/common';
 import { QUICHttpReportService } from 'src/quic_http_report/quic_http_report.service';
 
-@Controller('results')
+@Controller('quic-http-report')
 export class QUICHttpReportController {
     constructor(private readonly quicHttpReportService: QUICHttpReportService) { }
 
