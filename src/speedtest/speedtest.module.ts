@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
-import { SpeedtestService } from './speedtest.service';
-import { SpeedtestController } from './speedtest.controller';
+import { SpeedtestService } from 'src/speedtest/speedtest.service';
+import { SpeedtestController } from 'src/speedtest/speedtest.controller';
 
 @Module({
     controllers: [

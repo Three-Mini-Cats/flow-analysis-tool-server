@@ -1,5 +1,5 @@
 import { NestFactory } from '@nestjs/core';
-import { AppModule } from './app.module';
+import { AppModule } from './app/app.module';
 import { Logger } from '@nestjs/common';
 import morgan from 'morgan';
 
@@ -13,9 +13,9 @@ async function bootstrap() {
     app.use(morgan('dev'));
   }
 
-  const port = 3000;
+  const DEFAULT_PORT = 4000;
 
-  await app.listen(port);
-  logger.log(`${port}번 포트에서 NestJS 서버 실행중!`);
+  await app.listen(process.env.PORT || DEFAULT_PORT);
+  logger.log(`${process.env.PORT || DEFAULT_PORT}번 포트에서 NestJS 서버 실행중!`);
 }
 bootstrap();
