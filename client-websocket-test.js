@@ -22,6 +22,10 @@ socket.on("trafficUpdate", (msg) => {
   console.log("flowUpdate:", JSON.stringify(msg, null, 2));
 });
 
+socket.on("sessionEnded", (data) => {
+  console.log("SESSION_ENDED:", data);
+});
+
 socket.on("disconnect", () => {
   console.log("Disconnected");
 });

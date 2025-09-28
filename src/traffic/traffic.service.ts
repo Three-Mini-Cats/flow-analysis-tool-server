@@ -9,17 +9,14 @@ import { TrafficGateway } from 'src/traffic/traffic.gateway';
 export class TrafficService {
     private readonly logger = new Logger(TrafficService.name);
     private snifferProcesses: Map<string, ChildProcessWithoutNullStreams> = new Map();
-    private flows: Map<string, any> = new Map();
+    private flows: Map<string, Map<string, any>> = new Map();
+    private emitTimers: Map<string, NodeJS.Timeout> = new Map();
     private readonly emitIntervalMs = 500;
-    private emitIntervalTimer: NodeJS.Timeout;
 
     constructor(
         @Inject(forwardRef(() => TrafficGateway))
         private readonly trafficGateway: TrafficGateway,
     ) {
-        this.emitIntervalTimer = setInterval(() => {
-            this.emitFlowUpdates();
-        }, this.emitIntervalMs);
     }
 
     private initializeTsharkArgs(payload: StartTestPayload): string[] {
@@ -62,15 +59,34 @@ export class TrafficService {
             this.logger.log('Starting tshark sniffing process...');
             const tsharkProcess: ChildProcessWithoutNullStreams = spawn('tshark', args);
             this.snifferProcesses.set(sessionId, tsharkProcess);
+            this.flows.set(sessionId, new Map());
 
             tsharkProcess.stdout.on('data', (data: Buffer) => {
-                this.processTsharkOutput(data.toString('utf8'), payload.protocol);
+                this.processTsharkOutput(data.toString('utf8'), payload.protocol, sessionId);
             });
 
             tsharkProcess.on('close', (code) => {
                 this.logger.log(`Tshark process for session ${sessionId} closed with code ${code}`);
                 this.snifferProcesses.delete(sessionId);
+                const timer = this.emitTimers.get(sessionId);
+                if (timer) {
+                    clearInterval(timer);
+                    this.emitTimers.delete(sessionId);
+                }
+                this.flows.delete(sessionId);
+
+                this.trafficGateway.server.emit('sessionEnded', {
+                    type: 'SESSION_ENDED',
+                    sessionId,
+                    code,
+                    message: 'Traffic analysis session has ended'
+                });
             });
+
+            const emitTimer = setInterval(() => {
+                this.emitFlowUpdates(sessionId);
+            }, this.emitIntervalMs);
+            this.emitTimers.set(sessionId, emitTimer);
 
             if (payload.duration && payload.duration > 0) {
                 durationTimer = setTimeout(() => {
@@ -92,6 +108,12 @@ export class TrafficService {
             process.kill('SIGTERM');
             this.logger.log('Traffic analysis stopped successfully');
             this.snifferProcesses.delete(sessionId);
+            const timer = this.emitTimers.get(sessionId);
+            if (timer) {
+                clearInterval(timer);
+                this.emitTimers.delete(sessionId);
+            }
+            this.flows.delete(sessionId);
             return { success: true, message: 'Traffic analysis stopped successfully' };
         } else {
             this.logger.warn(`No active sniffer process found for sessionId: ${sessionId}`);
@@ -99,7 +121,7 @@ export class TrafficService {
         }
     }
 
-    private processTsharkOutput(data: string, protocolHint?: string): void {
+    private processTsharkOutput(data: string, protocolHint: string | undefined, sessionId: string): void {
         const lines: string[] = data.split('\n');
 
         for (const line of lines) {
@@ -153,11 +175,12 @@ export class TrafficService {
                 reverseFlowId = `${dstIp}->${srcIp}/${protocol}`;
             }
 
-            this.updateFlow(flowId, reverseFlowId, ts, frameLen, isRetransmit, srcIp, dstIp, protocol);
+            this.updateFlow(sessionId, flowId, reverseFlowId, ts, frameLen, isRetransmit, srcIp, dstIp, protocol);
         }
     }
 
     private updateFlow(
+        sessionId: string,
         flowId: string,
         reverseFlowId: string,
         ts: number,
@@ -167,8 +190,13 @@ export class TrafficService {
         dstIp: string,
         protocol: string
     ): void {
-        let flow = this.flows.get(flowId);
-        let reverseFlow = this.flows.get(reverseFlowId);
+        const sessionFlows = this.flows.get(sessionId);
+        if (!sessionFlows) {
+            return;
+        }
+
+        let flow = sessionFlows.get(flowId);
+        let reverseFlow = sessionFlows.get(reverseFlowId);
 
         if (flow) {
             flow.txBytes += frameLen;
@@ -198,19 +226,24 @@ export class TrafficService {
                 retransmits: isRetransmit ? 1 : 0,
                 status: 'ACTIVE',
             };
-            this.flows.set(flowId, flow);
+            sessionFlows.set(flowId, flow);
         }
     }
 
-    // 현재까지 누적된 모든 플로우 객체 반환
-    private emitFlowUpdates(): void {
+    // 현재까지 누적된 모든 플로우 객체 반환 for a session
+    private emitFlowUpdates(sessionId: string): void {
         const now: number = Date.now();
-        const flowsArr = Array.from(this.flows.values()).map(f => ({
+        const sessionFlows = this.flows.get(sessionId);
+        if (!sessionFlows) {
+            return;
+        }
+        const flowsArr = Array.from(sessionFlows.values()).map(f => ({
             ...f
         }));
         this.trafficGateway.server.emit('trafficUpdate', {
             type: 'flowUpdate',
             timestamp: now,
+            sessionId,
             flows: flowsArr
         });
     }
