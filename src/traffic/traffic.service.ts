@@ -117,9 +117,28 @@ export class TrafficService {
 
             const protocol = protoName || 'TCP';
             const flowId = `${srcIp}:${srcPort}->${dstIp}:${dstPort}/${protocol}`;
+            const reverseFlowId = `${dstIp}:${dstPort}->${srcIp}:${srcPort}/${protocol}`;
 
             let flow = this.flows.get(flowId);
-            if (!flow) {
+            let reverseFlow = this.flows.get(reverseFlowId);
+
+            if (flow) {
+                flow.txBytes += frameLen;
+                flow.txPackets += 1;
+                if (isRetransmit) {
+                    flow.retransmits += 1;
+                }
+                flow.durationSec = ts - flow.startTs;
+                flow.throughputBps = flow.durationSec > 0 ? Math.round(flow.txBytes * 8 / flow.durationSec) : 0;
+            } else if (reverseFlow) {
+                reverseFlow.rxBytes += frameLen;
+                reverseFlow.rxPackets += 1;
+                if (isRetransmit) {
+                    reverseFlow.retransmits += 1;
+                }
+                reverseFlow.durationSec = ts - reverseFlow.startTs;
+                reverseFlow.throughputBps = reverseFlow.durationSec > 0 ? Math.round((reverseFlow.txBytes + reverseFlow.rxBytes) * 8 / reverseFlow.durationSec) : 0;
+            } else {
                 flow = {
                     flowId,
                     srcIp,
@@ -127,25 +146,16 @@ export class TrafficService {
                     protocol,
                     startTs: ts,
                     durationSec: 0,
-                    txBytes: 0,
+                    txBytes: frameLen,
                     rxBytes: 0,
-                    txPackets: 0,
+                    txPackets: 1,
                     rxPackets: 0,
                     throughputBps: 0,
-                    retransmits: 0,
+                    retransmits: isRetransmit ? 1 : 0,
                     status: 'ACTIVE',
                 };
                 this.flows.set(flowId, flow);
             }
-
-            flow.txBytes += frameLen;
-            flow.txPackets += 1;
-            if (isRetransmit) {
-                flow.retransmits += 1;
-            }
-
-            flow.durationSec = ts - flow.startTs;
-            flow.throughputBps = flow.durationSec > 0 ? Math.round(flow.txBytes * 8 / flow.durationSec) : 0;
         }
 
         const flowsArr = Array.from(this.flows.values()).map(f => ({
