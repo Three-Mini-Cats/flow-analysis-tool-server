@@ -182,6 +182,7 @@ export class TrafficService {
             reverseFlow.durationSec = ts - reverseFlow.startTs;
             reverseFlow.throughputBps = reverseFlow.durationSec > 0 ? Math.round((reverseFlow.txBytes + reverseFlow.rxBytes) * 8 / reverseFlow.durationSec) : 0;
         } else {
+            // udp, icmp인 경우 retransmits은 0이다.
             flow = {
                 flowId,
                 srcIp,
@@ -201,13 +202,14 @@ export class TrafficService {
         }
     }
 
+    // 현재까지 누적된 모든 플로우 객체 반환
     private emitFlowUpdates(): void {
         const now: number = Date.now();
         const flowsArr = Array.from(this.flows.values()).map(f => ({
             ...f
         }));
         this.trafficGateway.server.emit('trafficUpdate', {
-            type: 'FLOW_UPDATE',
+            type: 'flowUpdate',
             timestamp: now,
             flows: flowsArr
         });

@@ -8,7 +8,7 @@ socket.on("connect", () => {
   console.log("Connected:", socket.id);
   socket.emit("startTest", {
     interface: "enp70s0",
-    protocol: "udp",
+    protocol: "tcp",
     duration: 5,
     captureLimit: 5000
   });
@@ -19,7 +19,7 @@ socket.on("startTestResponse", (data) => {
 });
 
 socket.on("trafficUpdate", (msg) => {
-  console.log("FLOW_UPDATE:", JSON.stringify(msg, null, 2));
+  console.log("flowUpdate:", JSON.stringify(msg, null, 2));
 });
 
 socket.on("disconnect", () => {
