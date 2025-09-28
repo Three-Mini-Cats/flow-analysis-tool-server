@@ -26,9 +26,9 @@ export class TrafficService {
         args.push('-l');
         args.push('-T', 'fields');
 
-        let protocolKey: string = payload.protocol?.toUpperCase() || 'TCP';
-        if (PROTOCOL_MAL[protocolKey]) {
-            args.push(...PROTOCOL_MAL[protocolKey]);
+        const protocolKeyUpper: string = payload.protocol?.toUpperCase() || 'TCP';
+        if (PROTOCOL_MAL[protocolKeyUpper]) {
+            args.push(...PROTOCOL_MAL[protocolKeyUpper]);
         } else {
             this.logger.warn(`Unsupported protocol: ${payload.protocol}, falling back to TCP`);
             args.push(...PROTOCOL_MAL['TCP']);
@@ -38,11 +38,11 @@ export class TrafficService {
             args.push('-c', payload.captureLimit.toString());
         }
 
-        protocolKey = protocolKey.toLowerCase();
+        const protocolKeyLower = protocolKeyUpper.toLowerCase();
 
-        if (protocolKey === 'tcp' || protocolKey === 'udp' || protocolKey === 'icmp') {
-            args.push('-f', protocolKey);
-        } else if (protocolKey === 'quic') {
+        if (protocolKeyLower === 'tcp' || protocolKeyLower === 'udp' || protocolKeyLower === 'icmp') {
+            args.push('-f', protocolKeyLower);
+        } else if (protocolKeyLower === 'quic') {
             args.push('-Y', 'quic');
         }
 
