@@ -9,7 +9,8 @@ socket.on("connect", () => {
   socket.emit("startTest", {
     interface: "enp70s0",
     protocol: "tcp",
-    duration: 10, // sec
+    duration: 10,
+    captureLimit: 5000
   });
 });
 

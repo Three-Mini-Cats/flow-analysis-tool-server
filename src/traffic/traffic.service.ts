@@ -1,7 +1,7 @@
 import { Injectable, Logger, Inject, forwardRef } from '@nestjs/common';
 import { spawn, ChildProcessWithoutNullStreams } from 'child_process';
 import { randomUUID, UUID } from 'crypto';
-import { TCP_MAP } from 'src/constants/tshark_maps/tcp.map';
+import { PROTOCOL_MAL } from 'src/constants/tshark_maps/protocol.map';
 import { StartTestPayload } from 'src/interfaces/start-test-payload.interface';
 import { TrafficGateway } from 'src/traffic/traffic.gateway';
 
@@ -26,10 +26,16 @@ export class TrafficService {
         const args: string[] = [];
 
         args.push('-i', payload.interface);
-        args.push('-f', 'tcp');
         args.push('-l');
         args.push('-T', 'fields');
-        args.push(...TCP_MAP.DEFAULT);
+
+        const protocolKey: string = payload.protocol?.toUpperCase() || 'TCP';
+        if (PROTOCOL_MAL[protocolKey]) {
+            args.push(...PROTOCOL_MAL[protocolKey]);
+        } else {
+            this.logger.warn(`Unsupported protocol: ${payload.protocol}, falling back to TCP`);
+            args.push(...PROTOCOL_MAL['TCP']);
+        }
 
         if (payload.captureLimit && payload.captureLimit > 0) {
             args.push('-c', payload.captureLimit.toString());
