@@ -55,82 +55,6 @@ export class TrafficService {
         return args;
     }
 
-    startSniffing(payload: StartTestPayload): { success: boolean, sessionId?: string, message: string } {
-        const sessionId: UUID = randomUUID();
-        const args: string[] = this.initializeTsharkArgs(payload);
-
-        let durationTimer: NodeJS.Timeout | undefined = undefined;
-
-        try {
-            this.logger.log('Starting tshark sniffing process...');
-            const tsharkProcess: ChildProcessWithoutNullStreams = spawn('tshark', args);
-            this.snifferProcesses.set(sessionId, tsharkProcess);
-            this.flows.set(sessionId, new Map());
-
-            tsharkProcess.stdout.on('data', (data: Buffer) => {
-                this.processTsharkOutput(data.toString('utf8'), payload.protocol, sessionId);
-            });
-
-            // tsharkProcess.stderr.on('data', (data: Buffer) => {
-            //     this.logger.error(data.toString('utf8'));
-            // });
-
-            tsharkProcess.on('close', (code) => {
-                this.logger.log(`Tshark process for session ${sessionId} closed with code ${code}`);
-                this.snifferProcesses.delete(sessionId);
-                const timer = this.emitTimers.get(sessionId);
-                if (timer) {
-                    clearInterval(timer);
-                    this.emitTimers.delete(sessionId);
-                }
-                this.flows.delete(sessionId);
-
-                this.trafficGateway.server.emit('sessionEnded', {
-                    type: 'SESSION_ENDED',
-                    sessionId,
-                    code,
-                    message: 'Traffic analysis session has ended'
-                });
-            });
-
-            const emitTimer = setInterval(() => {
-                this.emitFlowUpdates(sessionId);
-            }, this.emitIntervalMs);
-            this.emitTimers.set(sessionId, emitTimer);
-
-            if (payload.duration && payload.duration > 0) {
-                durationTimer = setTimeout(() => {
-                    this.stopSniffing(sessionId);
-                }, payload.duration * 1000);
-            }
-
-            this.logger.log('Traffic analysis started successfully');
-            return { success: true, sessionId, message: 'Traffic analysis started successfully' };
-        } catch (error) {
-            this.logger.error(`Failed to start tshark: ${error.message}`);
-            return { success: false, message: `Failed to start tshark: ${error.message}` };
-        }
-    }
-
-    stopSniffing(sessionId: string): { success: boolean, message: string } {
-        const process: ChildProcessWithoutNullStreams | undefined = this.snifferProcesses.get(sessionId);
-        if (process) {
-            process.kill('SIGTERM');
-            this.logger.log('Traffic analysis stopped successfully');
-            this.snifferProcesses.delete(sessionId);
-            const timer = this.emitTimers.get(sessionId);
-            if (timer) {
-                clearInterval(timer);
-                this.emitTimers.delete(sessionId);
-            }
-            this.flows.delete(sessionId);
-            return { success: true, message: 'Traffic analysis stopped successfully' };
-        } else {
-            this.logger.warn(`No active sniffer process found for sessionId: ${sessionId}`);
-            return { success: false, message: 'No active sniffer process found for given sessionId' };
-        }
-    }
-
     private processTsharkOutput(data: string, protocolHint: string | undefined, sessionId: string): void {
         const lines: string[] = data.split('\n');
 
@@ -256,5 +180,81 @@ export class TrafficService {
             sessionId,
             flows: flowsArr
         });
+    }
+
+    startSniffing(payload: StartTestPayload): { success: boolean, sessionId?: string, message: string } {
+        const sessionId: UUID = randomUUID();
+        const args: string[] = this.initializeTsharkArgs(payload);
+
+        let durationTimer: NodeJS.Timeout | undefined = undefined;
+
+        try {
+            this.logger.log('Starting tshark sniffing process...');
+            const tsharkProcess: ChildProcessWithoutNullStreams = spawn('tshark', args);
+            this.snifferProcesses.set(sessionId, tsharkProcess);
+            this.flows.set(sessionId, new Map());
+
+            tsharkProcess.stdout.on('data', (data: Buffer) => {
+                this.processTsharkOutput(data.toString('utf8'), payload.protocol, sessionId);
+            });
+
+            // tsharkProcess.stderr.on('data', (data: Buffer) => {
+            //     this.logger.error(data.toString('utf8'));
+            // });
+
+            tsharkProcess.on('close', (code) => {
+                this.logger.log(`Tshark process for session ${sessionId} closed with code ${code}`);
+                this.snifferProcesses.delete(sessionId);
+                const timer = this.emitTimers.get(sessionId);
+                if (timer) {
+                    clearInterval(timer);
+                    this.emitTimers.delete(sessionId);
+                }
+                this.flows.delete(sessionId);
+
+                this.trafficGateway.server.emit('sessionEnded', {
+                    type: 'SESSION_ENDED',
+                    sessionId,
+                    code,
+                    message: 'Traffic analysis session has ended'
+                });
+            });
+
+            const emitTimer = setInterval(() => {
+                this.emitFlowUpdates(sessionId);
+            }, this.emitIntervalMs);
+            this.emitTimers.set(sessionId, emitTimer);
+
+            if (payload.duration && payload.duration > 0) {
+                durationTimer = setTimeout(() => {
+                    this.stopSniffing(sessionId);
+                }, payload.duration * 1000);
+            }
+
+            this.logger.log('Traffic analysis started successfully');
+            return { success: true, sessionId, message: 'Traffic analysis started successfully' };
+        } catch (error) {
+            this.logger.error(`Failed to start tshark: ${error.message}`);
+            return { success: false, message: `Failed to start tshark: ${error.message}` };
+        }
+    }
+
+    stopSniffing(sessionId: string): { success: boolean, message: string } {
+        const process: ChildProcessWithoutNullStreams | undefined = this.snifferProcesses.get(sessionId);
+        if (process) {
+            process.kill('SIGTERM');
+            this.logger.log('Traffic analysis stopped successfully');
+            this.snifferProcesses.delete(sessionId);
+            const timer = this.emitTimers.get(sessionId);
+            if (timer) {
+                clearInterval(timer);
+                this.emitTimers.delete(sessionId);
+            }
+            this.flows.delete(sessionId);
+            return { success: true, message: 'Traffic analysis stopped successfully' };
+        } else {
+            this.logger.warn(`No active sniffer process found for sessionId: ${sessionId}`);
+            return { success: false, message: 'No active sniffer process found for given sessionId' };
+        }
     }
 }
