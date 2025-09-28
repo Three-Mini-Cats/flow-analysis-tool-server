@@ -10,11 +10,17 @@ export class TrafficService {
     private readonly logger = new Logger(TrafficService.name);
     private snifferProcesses: Map<string, ChildProcessWithoutNullStreams> = new Map();
     private flows: Map<string, any> = new Map();
+    private readonly emitIntervalMs = 500;
+    private emitIntervalTimer: NodeJS.Timeout;
 
     constructor(
         @Inject(forwardRef(() => TrafficGateway))
         private readonly trafficGateway: TrafficGateway,
-    ) { }
+    ) {
+        this.emitIntervalTimer = setInterval(() => {
+            this.emitFlowUpdates();
+        }, this.emitIntervalMs);
+    }
 
     private initializeTsharkArgs(payload: StartTestPayload): string[] {
         const args: string[] = [];
@@ -88,7 +94,6 @@ export class TrafficService {
 
     private processTsharkOutput(data: string): void {
         const lines: string[] = data.split('\n');
-        const now: number = Date.now();
 
         for (const line of lines) {
             if (!line.trim()) continue;
@@ -157,7 +162,10 @@ export class TrafficService {
                 this.flows.set(flowId, flow);
             }
         }
+    }
 
+    private emitFlowUpdates(): void {
+        const now: number = Date.now();
         const flowsArr = Array.from(this.flows.values()).map(f => ({
             ...f
         }));
