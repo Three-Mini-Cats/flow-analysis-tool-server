@@ -18,7 +18,7 @@ async function bootstrap() {
   }
 
   await app.listen(process.env.PORT || DEFAULT_PORT);
-  logger.log(`${process.env.PORT || DEFAULT_PORT}번 포트에서 NestJS 서버 실행중!`);
+  logger.log(`Running server at ${process.env.PORT || DEFAULT_PORT} port!`);
 }
 
 bootstrap();
