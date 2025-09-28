@@ -5,7 +5,7 @@ import morgan from 'morgan';
 import { WsAdapter } from '@nestjs/platform-ws';
 
 async function bootstrap() {
-  const DEFAULT_PORT: number = 3006;
+  const DEFAULT_PORT: number = 3010;
   const logger: Logger = new Logger('Bootstrap');
 
   const app: INestApplication = await NestFactory.create(AppModule);

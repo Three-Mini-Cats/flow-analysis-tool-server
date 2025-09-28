@@ -1,12 +1,7 @@
 import { Module } from '@nestjs/common';
-import { AppController } from 'src/app/app.controller';
-import { AppService } from 'src/app/app.service';
-import { SpeedtestModule } from 'src/speedtest/speedtest.module';
-import { QUICHTTPModule } from 'src/quic-http/quic-http.module';
+import { TrafficModule } from 'src/traffic/traffic.module';
 
 @Module({
-  imports: [SpeedtestModule, QUICHTTPModule],
-  controllers: [AppController],
-  providers: [AppService],
+  imports: [TrafficModule],
 })
 export class AppModule { }
