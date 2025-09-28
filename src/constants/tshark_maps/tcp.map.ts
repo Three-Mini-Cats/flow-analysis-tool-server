@@ -1,10 +1,5 @@
 export const TCP_MAP: Record<string, string[]> = {
     DEFAULT: [
-        'tshark',
-        '-i', 'enp70s0',
-        '-f', 'tcp',
-        '-l',
-        '-T', 'fields',
         '-e', 'frame.number',
         '-e', 'frame.time_epoch',
         '-e', 'frame.len',
@@ -15,15 +10,5 @@ export const TCP_MAP: Record<string, string[]> = {
         '-e', 'tcp.srcport',
         '-e', 'tcp.dstport',
         '-e', 'tcp.analysis.retransmission',
-        '-E', 'separator=,',
     ],
 } as const;
-// export const TCP_MAP: Record<string, string[]> = {
-//     DEFAULT: [
-//         'tshark',
-//         '-i', 'enp70s0',
-//         '-f', 'tcp',
-//         '-l',
-//         '-T', 'json',
-//     ],
-// } as const;
