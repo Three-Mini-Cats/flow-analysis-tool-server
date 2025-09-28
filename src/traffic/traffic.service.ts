@@ -37,9 +37,16 @@ export class TrafficService {
         if (payload.captureLimit && payload.captureLimit > 0) {
             args.push('-c', payload.captureLimit.toString());
         }
+
         if (payload.protocol) {
-            args.push('-f', payload.protocol.toLowerCase());
+            const proto = payload.protocol.toLowerCase();
+            if (proto === 'tcp' || proto === 'udp' || proto === 'icmp') {
+                args.push('-f', proto);
+            } else if (proto === 'quic') {
+                args.push('-Y', 'quic');
+            }
         }
+
         if (payload.bpfFilter) {
             args.push('-f', payload.bpfFilter);
         }
@@ -64,6 +71,10 @@ export class TrafficService {
             tsharkProcess.stdout.on('data', (data: Buffer) => {
                 this.processTsharkOutput(data.toString('utf8'), payload.protocol, sessionId);
             });
+
+            // tsharkProcess.stderr.on('data', (data: Buffer) => {
+            //     this.logger.error(data.toString('utf8'));
+            // });
 
             tsharkProcess.on('close', (code) => {
                 this.logger.log(`Tshark process for session ${sessionId} closed with code ${code}`);
@@ -171,6 +182,7 @@ export class TrafficService {
                 reverseFlowId = `${dstIp}->${srcIp}/ICMP-${icmpType}:${icmpCode}`;
                 protocol = 'ICMP';
             } else {
+                // QUIC, and others
                 flowId = `${srcIp}->${dstIp}/${protocol}`;
                 reverseFlowId = `${dstIp}->${srcIp}/${protocol}`;
             }
@@ -210,7 +222,6 @@ export class TrafficService {
             reverseFlow.durationSec = ts - reverseFlow.startTs;
             reverseFlow.throughputBps = reverseFlow.durationSec > 0 ? Math.round((reverseFlow.txBytes + reverseFlow.rxBytes) * 8 / reverseFlow.durationSec) : 0;
         } else {
-            // udp, icmp인 경우 retransmits은 0이다.
             flow = {
                 flowId,
                 srcIp,

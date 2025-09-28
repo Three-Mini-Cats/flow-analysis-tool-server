@@ -36,4 +36,17 @@ export const PROTOCOL_MAL: Record<string, string[]> = {
         '-e', 'icmp.ident',
         '-e', 'icmp.seq',
     ],
+    QUIC: [
+        '-e', 'frame.number',
+        '-e', 'frame.time_epoch',
+        '-e', 'frame.len',
+        '-e', 'ip.src',
+        '-e', 'ip.dst',
+        '-e', 'ip.proto',
+        '-e', '_ws.col.Protocol',
+        '-e', 'quic.scid',
+        '-e', 'quic.packet_number',
+        '-e', 'quic.length',
+        '-e', 'quic.version',
+    ],
 } as const;
