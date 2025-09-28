@@ -8,7 +8,7 @@ socket.on("connect", () => {
   console.log("Connected:", socket.id);
   socket.emit("startTest", {
     interface: "enp70s0",
-    protocol: "quic",
+    protocol: "tcp",
     duration: 20,
     captureLimit: 5000
   });

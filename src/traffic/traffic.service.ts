@@ -26,7 +26,7 @@ export class TrafficService {
         args.push('-l');
         args.push('-T', 'fields');
 
-        const protocolKey: string = payload.protocol?.toUpperCase() || 'TCP';
+        let protocolKey: string = payload.protocol?.toUpperCase() || 'TCP';
         if (PROTOCOL_MAL[protocolKey]) {
             args.push(...PROTOCOL_MAL[protocolKey]);
         } else {
@@ -38,13 +38,12 @@ export class TrafficService {
             args.push('-c', payload.captureLimit.toString());
         }
 
-        if (payload.protocol) {
-            const proto = payload.protocol.toLowerCase();
-            if (proto === 'tcp' || proto === 'udp' || proto === 'icmp') {
-                args.push('-f', proto);
-            } else if (proto === 'quic') {
-                args.push('-Y', 'quic');
-            }
+        protocolKey = protocolKey.toLowerCase();
+
+        if (protocolKey === 'tcp' || protocolKey === 'udp' || protocolKey === 'icmp') {
+            args.push('-f', protocolKey);
+        } else if (protocolKey === 'quic') {
+            args.push('-Y', 'quic');
         }
 
         if (payload.bpfFilter) {
