@@ -8,8 +8,8 @@ socket.on("connect", () => {
   console.log("Connected:", socket.id);
   socket.emit("startTest", {
     interface: "enp70s0",
-    protocol: "tcp",
-    duration: 10,
+    protocol: "udp",
+    duration: 5,
     captureLimit: 5000
   });
 });

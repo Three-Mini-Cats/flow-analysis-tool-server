@@ -40,6 +40,9 @@ export class TrafficService {
         if (payload.captureLimit && payload.captureLimit > 0) {
             args.push('-c', payload.captureLimit.toString());
         }
+        if (payload.protocol) {
+            args.push('-f', payload.protocol.toLowerCase());
+        }
         if (payload.bpfFilter) {
             args.push('-f', payload.bpfFilter);
         }
@@ -61,8 +64,7 @@ export class TrafficService {
             this.snifferProcesses.set(sessionId, tsharkProcess);
 
             tsharkProcess.stdout.on('data', (data: Buffer) => {
-                // this.logger.log(data.toString('utf8'));
-                this.processTsharkOutput(data.toString('utf8'));
+                this.processTsharkOutput(data.toString('utf8'), payload.protocol);
             });
 
             tsharkProcess.on('close', (code) => {
@@ -97,76 +99,105 @@ export class TrafficService {
         }
     }
 
-
-    private processTsharkOutput(data: string): void {
+    private processTsharkOutput(data: string, protocolHint?: string): void {
         const lines: string[] = data.split('\n');
 
         for (const line of lines) {
             if (!line.trim()) continue;
 
             const fields: string[] = line.split(',');
-            if (fields.length < 9) continue;
+            if (fields.length < 7) continue;
 
-            const [
-                frameNoStr,      // frame.number
-                tsStr,           // frame.time_epoch
-                frameLenStr,     // frame.len
-                srcIp,           // ip.src
-                dstIp,           // ip.dst
-                protoNumStr,     // ip.proto
-                protoName,       // _ws.col.Protocol
-                srcPortStr,      // tcp.srcport
-                dstPortStr,      // tcp.dstport
-                retransmitFlag   // tcp.analysis.retransmission (optional)
-            ]: string[] = fields;
+            const frameNoStr = fields[0];      // frame.number
+            const tsStr = fields[1];           // frame.time_epoch
+            const frameLenStr = fields[2];     // frame.len
+            const srcIp = fields[3];           // ip.src
+            const dstIp = fields[4];           // ip.dst
+            const protoNumStr = fields[5];     // ip.proto
+            const protoName = fields[6] || (protocolHint?.toUpperCase() || 'UNKNOWN');
 
             const ts = parseFloat(tsStr);
             const frameLen = parseInt(frameLenStr, 10);
-            const srcPort = parseInt(srcPortStr, 10);
-            const dstPort = parseInt(dstPortStr, 10);
-            const isRetransmit = retransmitFlag && retransmitFlag.trim() !== '' ? 1 : 0;
 
-            const protocol = protoName || 'TCP';
-            const flowId = `${srcIp}:${srcPort}->${dstIp}:${dstPort}/${protocol}`;
-            const reverseFlowId = `${dstIp}:${dstPort}->${srcIp}:${srcPort}/${protocol}`;
+            let flowId: string;
+            let reverseFlowId: string;
+            let srcPort = 0;
+            let dstPort = 0;
+            let isRetransmit = 0;
+            let protocol = protoName;
 
-            let flow = this.flows.get(flowId);
-            let reverseFlow = this.flows.get(reverseFlowId);
+            if (protocol.toUpperCase() === 'TCP') {
+                srcPort = parseInt(fields[7] || '0', 10);
+                dstPort = parseInt(fields[8] || '0', 10);
+                const retransmitFlag = fields[9] || '';
+                isRetransmit = retransmitFlag.trim() !== '' ? 1 : 0;
 
-            if (flow) {
-                flow.txBytes += frameLen;
-                flow.txPackets += 1;
-                if (isRetransmit) {
-                    flow.retransmits += 1;
-                }
-                flow.durationSec = ts - flow.startTs;
-                flow.throughputBps = flow.durationSec > 0 ? Math.round(flow.txBytes * 8 / flow.durationSec) : 0;
-            } else if (reverseFlow) {
-                reverseFlow.rxBytes += frameLen;
-                reverseFlow.rxPackets += 1;
-                if (isRetransmit) {
-                    reverseFlow.retransmits += 1;
-                }
-                reverseFlow.durationSec = ts - reverseFlow.startTs;
-                reverseFlow.throughputBps = reverseFlow.durationSec > 0 ? Math.round((reverseFlow.txBytes + reverseFlow.rxBytes) * 8 / reverseFlow.durationSec) : 0;
+                flowId = `${srcIp}:${srcPort}->${dstIp}:${dstPort}/${protocol}`;
+                reverseFlowId = `${dstIp}:${dstPort}->${srcIp}:${srcPort}/${protocol}`;
+
+            } else if (protocol.toUpperCase() === 'UDP') {
+                srcPort = parseInt(fields[7] || '0', 10);
+                dstPort = parseInt(fields[8] || '0', 10);
+
+                flowId = `${srcIp}:${srcPort}->${dstIp}:${dstPort}/${protocol}`;
+                reverseFlowId = `${dstIp}:${dstPort}->${srcIp}:${srcPort}/${protocol}`;
+
+            } else if (protocol.toUpperCase().startsWith('ICMP')) {
+                const icmpType = fields[7] || '';
+                const icmpCode = fields[8] || '';
+                flowId = `${srcIp}->${dstIp}/ICMP-${icmpType}:${icmpCode}`;
+                reverseFlowId = `${dstIp}->${srcIp}/ICMP-${icmpType}:${icmpCode}`;
+                protocol = 'ICMP';
             } else {
-                flow = {
-                    flowId,
-                    srcIp,
-                    dstIp,
-                    protocol,
-                    startTs: ts,
-                    durationSec: 0,
-                    txBytes: frameLen,
-                    rxBytes: 0,
-                    txPackets: 1,
-                    rxPackets: 0,
-                    throughputBps: 0,
-                    retransmits: isRetransmit ? 1 : 0,
-                    status: 'ACTIVE',
-                };
-                this.flows.set(flowId, flow);
+                flowId = `${srcIp}->${dstIp}/${protocol}`;
+                reverseFlowId = `${dstIp}->${srcIp}/${protocol}`;
             }
+
+            this.updateFlow(flowId, reverseFlowId, ts, frameLen, isRetransmit, srcIp, dstIp, protocol);
+        }
+    }
+
+    private updateFlow(
+        flowId: string,
+        reverseFlowId: string,
+        ts: number,
+        frameLen: number,
+        isRetransmit: number,
+        srcIp: string,
+        dstIp: string,
+        protocol: string
+    ): void {
+        let flow = this.flows.get(flowId);
+        let reverseFlow = this.flows.get(reverseFlowId);
+
+        if (flow) {
+            flow.txBytes += frameLen;
+            flow.txPackets += 1;
+            if (isRetransmit) flow.retransmits += 1;
+            flow.durationSec = ts - flow.startTs;
+            flow.throughputBps = flow.durationSec > 0 ? Math.round(flow.txBytes * 8 / flow.durationSec) : 0;
+        } else if (reverseFlow) {
+            reverseFlow.rxBytes += frameLen;
+            reverseFlow.rxPackets += 1;
+            reverseFlow.durationSec = ts - reverseFlow.startTs;
+            reverseFlow.throughputBps = reverseFlow.durationSec > 0 ? Math.round((reverseFlow.txBytes + reverseFlow.rxBytes) * 8 / reverseFlow.durationSec) : 0;
+        } else {
+            flow = {
+                flowId,
+                srcIp,
+                dstIp,
+                protocol,
+                startTs: ts,
+                durationSec: 0,
+                txBytes: frameLen,
+                rxBytes: 0,
+                txPackets: 1,
+                rxPackets: 0,
+                throughputBps: 0,
+                retransmits: isRetransmit ? 1 : 0,
+                status: 'ACTIVE',
+            };
+            this.flows.set(flowId, flow);
         }
     }
 
