@@ -106,11 +106,13 @@ export class TrafficService {
                 protocol = 'ICMP';
             } else {
                 // QUIC, and others
+                srcPort = parseInt(fields[7] || '0', 10);
+                dstPort = parseInt(fields[8] || '0', 10);
                 flowId = `${srcIp}->${dstIp}/${protocol}`;
                 reverseFlowId = `${dstIp}->${srcIp}/${protocol}`;
             }
 
-            this.updateFlow(sessionId, flowId, reverseFlowId, ts, frameLen, isRetransmit, srcIp, dstIp, protocol);
+            this.updateFlow(sessionId, flowId, reverseFlowId, ts, frameLen, isRetransmit, srcIp, dstIp, srcPort, dstPort, protocol);
         }
     }
 
@@ -123,6 +125,8 @@ export class TrafficService {
         isRetransmit: number,
         srcIp: string,
         dstIp: string,
+        srcPort: number,
+        dstPort: number,
         protocol: string
     ): void {
         const sessionFlows = this.flows.get(sessionId);
@@ -149,6 +153,8 @@ export class TrafficService {
                 flowId,
                 srcIp,
                 dstIp,
+                srcPort,
+                dstPort,
                 protocol,
                 startTs: ts,
                 durationSec: 0,

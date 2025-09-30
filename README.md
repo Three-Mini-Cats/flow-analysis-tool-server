@@ -1,4 +1,4 @@
-# flow-analysis-tools-server: Flow-based Network Traffic Statistics Collection and Analysis Tool
+# flow-analysis-tool-server: Flow-based Network Traffic Statistics Collection and Analysis Tool
 
 This project provides a tool for capturing live network traffic and aggregating it into flows (TCP/UDP/ICMP/QUIC) in real time.
 

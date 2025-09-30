@@ -44,6 +44,8 @@ export const PROTOCOL_MAL: Record<string, string[]> = {
         '-e', 'ip.dst',
         '-e', 'ip.proto',
         '-e', '_ws.col.Protocol',
+        '-e', 'udp.srcport',
+        '-e', 'udp.dstport',
         '-e', 'quic.scid',
         '-e', 'quic.packet_number',
         '-e', 'quic.length',
