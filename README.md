@@ -1,4 +1,4 @@
-# flow-analysis-too-server: Flow-based traffic analysis tools
+# flow-analysis-tools-server: Flow-based Network Traffic Statistics Collection and Analysis Tool
 
 This project provides a tool for capturing live network traffic and aggregating it into flows (TCP/UDP/ICMP/QUIC) in real time.
 
@@ -24,6 +24,7 @@ This project was carried out in the following environment.
 
 - **Node.js v23.11.1**
 - **npm v10.9.2**
+- **tshark v4.4.8**
 
 ### 2. Install
 
